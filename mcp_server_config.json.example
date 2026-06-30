@@ -1,0 +1,19 @@
+{
+    "host": "0.0.0.0",
+    "port": 9000,
+    "server_info": {
+        "name": "simple-demo-server",
+        "version": "1.0.0"
+    },
+    "secret_file_path": "./mcp-server-data/secret_notes.txt",
+    "check_maintenance_description": "Tool for checking maintenance information",
+    "check_maintenance_prefix": "maintenance information",
+    "oauth": {
+        "enabled": false,
+        "issuer": "https://<your-org>.okta.com/oauth2/default",
+        "jwks_uri": "https://<your-org>.okta.com/oauth2/default/v1/keys",
+        "audience": "api://mcp-server",
+        "scopes": [],
+        "jwks_cache_seconds": 600
+    }
+}

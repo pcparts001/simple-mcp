@@ -1,0 +1,36 @@
+# Instructions and documentation (do not commit)
+instructions.md
+CLAUDE.md
+CLAUDE.md.backup
+backup/
+
+# Config (contains local settings — keep only the .example)
+mcp_server_config.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local data (keep only the example)
+mcp-server-data/*
+!mcp-server-data/secret_notes.txt.example

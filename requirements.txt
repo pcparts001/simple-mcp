@@ -1,0 +1,6 @@
+# Simple MCP Server は Python 標準ライブラリのみで基本動作します。
+# 以下は OAuth 2.1 認証を有効化する場合のみ必要です（デフォルトは無効）。
+
+# OAuth 2.1 Bearer トークン検証（JWKS / RS256）
+PyJWT>=2.8.0
+cryptography>=41.0.0
