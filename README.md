@@ -52,15 +52,46 @@ cp mcp-server-data/secret_notes.txt.example mcp-server-data/secret_notes.txt
 
 ## 起動
 
+### フォアグラウンド実行（手元での検証用）
+
 ```bash
 # 設定ファイルのポートで起動（デフォルト: 9000）
-python mcpServer.py
+python3 mcpServer.py
 
 # ポートを指定して起動
-python mcpServer.py 9001
+python3 mcpServer.py 9001
 ```
 
 起動後、`http://localhost:9000/` でリクエストを待ち受けます。
+
+### バックグラウンド実行（本番運用 / Ubuntu 推奨）
+
+`scripts/` 以下のスクリプトを使うと、ターミナルを切断しても継続動作するバックグラウンド起動ができます。
+ログは `logs/server.log` に出力され、`tail -f` でリアルタイムに確認できます。
+
+```bash
+# 初回のみ：スクリプトに実行権限を付与
+chmod +x scripts/*.sh
+
+# 起動（設定ファイルのポート / デフォルト 9000）
+./scripts/start.sh
+
+# ポートを指定して起動
+./scripts/start.sh 9001
+
+# ログをリアルタイム確認（別ターミナルで実行）
+tail -f logs/server.log
+
+# 状態確認
+./scripts/status.sh
+
+# 停止
+./scripts/stop.sh
+```
+
+> **補足**: バックグラウンド起動時は `python3 -u`（出力バッファリング無効化）で動かすため、
+> `tail -f` で遅延なくログが表示されます。プロセスは PID ファイル（`mcp-server.pid`）で管理され、
+> 二重起動は防止されます。
 
 ## 動作確認
 
@@ -102,8 +133,13 @@ curl -X POST http://localhost:9000/ \
 simple-mcp/
 ├── mcpServer.py                          # MCP Server 本体
 ├── mcp_server_config.json.example        # 設定ファイル例
+├── scripts/
+│   ├── start.sh                          # バックグラウンド起動（nohup + PID管理）
+│   ├── stop.sh                           # 停止
+│   └── status.sh                         # 状態確認
 ├── mcp-server-data/
 │   └── secret_notes.txt.example          # メンテナンス情報ファイル例
+├── logs/                                 # ログ出力先（.gitignore 対象・実行時に生成）
 ├── requirements.txt                      # OAuth 利用時の依存パッケージ
 └── README.md
 ```

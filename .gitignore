@@ -34,3 +34,9 @@ Thumbs.db
 # Local data (keep only the example)
 mcp-server-data/*
 !mcp-server-data/secret_notes.txt.example
+
+# Logs
+logs/
+
+# PID file (runtime)
+mcp-server.pid
