@@ -141,8 +141,41 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
     server_config = {}
     oauth_verifier = None  # OAuth 検証器（None または disabled の場合は認証無効）
 
+    def _get_client_info(self):
+        """送信元クライアント情報を取得（プロキシ/ゲートウェイ経由を考慮）"""
+        # 直接接続のTCP送信元IP（プロキシ経由の場合はプロキシ自身のIPになる）
+        direct_ip = self.client_address[0] if self.client_address else "unknown"
+
+        # プロキシ/ゲートウェイが付与するヘッダー（信頼できるプロキシ経由時のみ有効・偽装に注意）
+        xff = self.headers.get("X-Forwarded-For", "")
+        x_real_ip = self.headers.get("X-Real-IP", "")
+
+        # X-Forwarded-For は "client, proxy1, proxy2" の形式。最初のIPが本来のクライアント
+        forwarded_ip = xff.split(",")[0].strip() if xff else ""
+
+        return {
+            "direct": direct_ip,
+            "forwarded": forwarded_ip or None,
+            "x_real_ip": x_real_ip.strip() or None,
+        }
+
+    def _log_client_info(self):
+        """送信元クライアント情報をログ出力"""
+        info = self._get_client_info()
+        print(f"   Client IP (direct): {info['direct']}")
+        if info['forwarded']:
+            print(f"   Client IP (X-Forwarded-For): {info['forwarded']}")
+        if info['x_real_ip']:
+            print(f"   Client IP (X-Real-IP): {info['x_real_ip']}")
+
     def do_OPTIONS(self):
         """OPTIONSリクエストの処理（CORS対応）"""
+        print(f"\n{'='*60}")
+        print(f"📥 Received OPTIONS request")
+        print(f"   Path: {self.path}")
+        self._log_client_info()
+        print(f"{'='*60}\n")
+
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
@@ -224,6 +257,7 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         print(f"\n{'='*60}")
         print(f"📥 Received GET request")
         print(f"   Path: {self.path}")
+        self._log_client_info()
         print(f"{'='*60}\n")
 
         self.send_response(200)
@@ -250,7 +284,7 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
             print(f"\n{'='*60}")
             print(f"📥 Received POST request")
             print(f"   Path: {self.path}")
-            print(f"   Client: {self.client_address}")
+            self._log_client_info()
             print(f"\n   All Headers:")
             for header, value in self.headers.items():
                 print(f"      {header}: {value}")
