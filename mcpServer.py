@@ -26,7 +26,8 @@ def load_config(config_path="mcp_server_config.json"):
         "check_maintenance_description": "Tool for checking maintenance information",
         "check_maintenance_prefix": "maintenance information",
         "oauth": {
-            "enabled": False
+            "enabled": False,
+            "public_resource_url": ""
         }
     }
 
@@ -226,12 +227,55 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
             self._send_unauthorized(str(e))
             return False
 
+    def _resolve_resource_url(self):
+        """クライアント視点の Protected Resource URL を解決する。
+
+        RFC 9728 §2.1 により、返却するメタデータの `resource` は
+        「クライアントがメタデータを取得するのに使ったURL」とスキーマ・ホスト・ポート
+        まで完全一致しなければならない。リバースプロキシ（MCP Proxy）背後では、
+        このサーバーから見たアドレス（Host ヘッダ）はクライアントのURLと食い違うため、
+        以下の優先順位でクライアント視点のURLを決定する。
+
+          1. 設定の oauth.public_resource_url（明示指定・プロキシ背後で推奨）
+          2. X-Forwarded-Host + X-Forwarded-Proto（信頼できるプロキシが付与）
+          3. Host ヘッダ（従来動作・フォールバック）
+          4. http://localhost:{port}（最終フォールバック）
+
+        ※ X-Forwarded-* は resource metadata 構築用途の参考値として扱う。認可自体は
+           JWKS トークン検証で独立して保護されており、仮に偽装されてもクライアント側の
+           resource 一致検証で弾かれるため、サーバーの保護を損なわない。
+        """
+        oauth_cfg = self.server_config.get("oauth", {}) or {}
+
+        # 1. 設定の明示指定（最優先・リバースプロキシ背後で最も確実）
+        public = (oauth_cfg.get("public_resource_url") or "").strip().rstrip("/")
+        if public:
+            return public
+
+        # プロキシヘッダーはカンマ区切りリスト（"client, proxy1, proxy2"）。
+        # 先頭要素がクライアントに最も近い（本来の）値。
+        xf_proto = self.headers.get("X-Forwarded-Proto", "").split(",")[0].strip().lower()
+        xf_host = self.headers.get("X-Forwarded-Host", "").split(",")[0].strip()
+
+        # 2. X-Forwarded-Host があれば、プロキシヘッダーからクライアント視点を復元
+        if xf_host:
+            proto = xf_proto or "http"
+            return f"{proto}://{xf_host}"
+
+        # 3. Host ヘッダから組み立て（スキーマは X-Forwarded-Proto を優先・https 終端対応）
+        host_header = self.headers.get("Host", "")
+        if host_header:
+            proto = xf_proto or "http"
+            return f"{proto}://{host_header}"
+
+        # 4. 最終フォールバック（ヘッダ類が一切取れない場合）
+        port = self.server_config.get("port", 9000)
+        return f"http://localhost:{port}"
+
     def _serve_protected_resource_metadata(self):
         """RFC 9728 Protected Resource Metadata を返す"""
-        host_header = self.headers.get("Host", "")
-        port = self.server_config.get("port", 9000)
-        resource_url = f"http://{host_header}" if host_header else f"http://localhost:{port}"
         oauth_cfg = self.server_config.get("oauth", {}) or {}
+        resource_url = self._resolve_resource_url()
         metadata = {
             "resource": resource_url,
             "authorization_servers": [oauth_cfg["issuer"]] if oauth_cfg.get("issuer") else [],

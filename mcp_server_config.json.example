@@ -10,6 +10,7 @@
     "check_maintenance_prefix": "maintenance information",
     "oauth": {
         "enabled": false,
+        "public_resource_url": "",
         "issuer": "https://<your-org>.okta.com/oauth2/default",
         "jwks_uri": "https://<your-org>.okta.com/oauth2/default/v1/keys",
         "audience": "api://mcp-server",

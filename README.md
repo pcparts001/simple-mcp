@@ -125,7 +125,55 @@ curl -X POST http://localhost:9000/ \
 | `secret_file_path` | メンテナンス情報ファイルのパス | `./mcp-server-data/secret_notes.txt` |
 | `check_maintenance_description` | `check_maintenance` ツールの説明文 | （例を参照） |
 | `check_maintenance_prefix` | 返却時のプレフィックス文字列 | `maintenance information` |
-| `oauth` | OAuth 認証設定（`enabled` / `issuer` / `jwks_uri` / `audience` / `scopes`） | `enabled: false` |
+| `oauth.enabled` | OAuth 2.1 認証の有効/無効 | `false` |
+| `oauth.public_resource_url` | クライアントがアクセスする公開URL（リバースプロキシ背後で指定）。未指定時は `X-Forwarded-*` → `Host` ヘッダの順で自動解決 | （空・自動解決） |
+| `oauth.issuer` | IdP の Issuer URL | （例を参照） |
+| `oauth.jwks_uri` | IdP の JWKS エンドポイント | （例を参照） |
+| `oauth.audience` | 検証する `aud` クレーム | `api://mcp-server` |
+| `oauth.scopes` | 要求するスコープのリスト | `[]` |
+
+## リバースプロキシ（MCP Proxy）背後での運用
+
+クライアント → MCP Proxy → 本サーバー（:9000）のようにリバースプロキシを挟む場合、
+OAuth Discovery で **「Proxy のURL と `resource` が一致しない（origin error）」** が出る場合があります。
+
+### 原因
+
+`/.well-known/oauth-protected-resource` が返す `resource` フィールドは、RFC 9728 §2.1 により
+**クライアントがメタデータを取得するのに使ったURLと完全一致** する必要があります。サーバーはデフォルトで
+`Host` ヘッダからURLを組み立てますが、プロキシが `Host` を書き換えるとクライアントのURLと食い違います。
+
+### 解決方法（いずれか）
+
+**1. `public_resource_url` を明示指定（推奨・最も確実）**
+
+クライアントが使うURLをそのまま設定します。
+
+```json
+"oauth": {
+    "enabled": true,
+    "public_resource_url": "https://mcp-proxy.example.com",
+    ...
+}
+```
+
+**2. プロキシに `X-Forwarded-*` ヘッダーを付与させる**
+
+`public_resource_url` 未指定時は、サーバーが `X-Forwarded-Host` / `X-Forwarded-Proto` を見て
+クライアント視点のURLを自動復元します。nginx の例:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:9000;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+> `public_resource_url` が未設定でも従来どおり `Host` ヘッダにフォールバックするため、
+> 既存の直接接続環境は影響を受けません。認可自体は JWKS トークン検証で独立して保護されています。
+
 
 ## ディレクトリ構成
 
