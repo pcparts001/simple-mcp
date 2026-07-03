@@ -283,6 +283,12 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
             "resource_documentation": resource_url,
             "scopes_supported": oauth_cfg.get("scopes", []) or [],
         }
+
+        print(f"\n{'='*60}")
+        print(f"📤 Sending response")
+        print(f"   Response: {json.dumps(metadata, indent=2, ensure_ascii=False)}")
+        print(f"{'='*60}\n")
+
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -295,6 +301,11 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
 
         # Protected Resource Metadata (RFC 9728) — 認証不要
         if path == "/.well-known/oauth-protected-resource":
+            print(f"\n{'='*60}")
+            print(f"📥 Received GET request (OAuth Discovery / RFC 9728)")
+            print(f"   Path: {self.path}")
+            self._log_client_info()
+            print(f"{'='*60}\n")
             self._serve_protected_resource_metadata()
             return
 
