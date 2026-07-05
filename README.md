@@ -1,153 +1,153 @@
 # simple-mcp
 
-MCP（Model Context Protocol）に準拠したシンプルな HTTP ベースの MCP Server です。
-Python 標準ライブラリのみで動作し、ツール・プロンプト・リソースを提供します。
+A simple HTTP-based MCP Server compliant with the MCP (Model Context Protocol).
+It runs on the Python standard library alone and provides tools, prompts, and resources.
 
-## 提供する機能
+## Features
 
 ### Tools
-| ツール名 | 説明 |
+| Tool | Description |
 | --- | --- |
-| `get_test_string` | テスト用文字列を返します（`prefix` オプション対応） |
-| `echo` | 入力メッセージをそのまま返します |
-| `check_maintenance` | `secret_notes.txt` のメンテナンス情報を返します |
+| `get_test_string` | Returns a test string (supports an optional `prefix`) |
+| `echo` | Returns the input message as-is |
+| `check_maintenance` | Returns maintenance information from `secret_notes.txt` |
 
 ### Prompts
-| プロンプト名 | 説明 |
+| Prompt | Description |
 | --- | --- |
-| `greeting` | 挨拶プロンプト（`name` 引数対応） |
+| `greeting` | Greeting prompt (supports a `name` argument) |
 
 ### Resources
-| URI | 説明 |
+| URI | Description |
 | --- | --- |
-| `demo://test-data` | デモ用テストデータ |
+| `demo://test-data` | Demo test data |
 
-### その他の機能
-- **OAuth 2.1** Bearer トークン検証（JWKS / RS256）※オプション・デフォルト無効
-- CORS 対応
-- RFC 9728 Protected Resource Metadata エンドポイント（`/.well-known/oauth-protected-resource`）
-- MCP プロトコルバージョン `2024-11-05`
+### Other Features
+- **OAuth 2.1** Bearer token verification (JWKS / RS256) — optional, disabled by default
+- CORS support
+- RFC 9728 Protected Resource Metadata endpoint (`/.well-known/oauth-protected-resource`)
+- MCP protocol version `2024-11-05`
 
-## 必要環境
-- Python 3.8 以上
-- OAuth 認証を使う場合のみ追加パッケージが必要（`requirements.txt` 参照）
+## Requirements
+- Python 3.8 or later
+- Additional packages are required only when using OAuth authentication (see `requirements.txt`)
 
-## セットアップ
+## Setup
 
 ```bash
-# 仮想環境の作成
+# Create a virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
-# 依存パッケージのインストール（OAuth を使わない場合は省略可）
+# Install dependencies (skip if you do not use OAuth)
 pip install -r requirements.txt
 
-# 設定ファイルの準備
+# Prepare the configuration file
 cp mcp_server_config.json.example mcp_server_config.json
 
-# メンテナンス情報ファイルの準備（自動生成されますが、手動で用意も可能）
+# Prepare the maintenance information file (auto-generated, but can be created manually)
 mkdir -p mcp-server-data
 cp mcp-server-data/secret_notes.txt.example mcp-server-data/secret_notes.txt
 ```
 
-## 起動
+## Running
 
-### フォアグラウンド実行（手元での検証用）
+### Foreground execution (for local testing)
 
 ```bash
-# 設定ファイルのポートで起動（デフォルト: 9000）
+# Start on the port defined in the config file (default: 9000)
 python3 mcpServer.py
 
-# ポートを指定して起動
+# Start with a specific port
 python3 mcpServer.py 9001
 ```
 
-起動後、`http://localhost:9000/` でリクエストを待ち受けます。
+After starting, the server listens for requests at `http://localhost:9000/`.
 
-### バックグラウンド実行（本番運用 / Ubuntu 推奨）
+### Background execution (production / Ubuntu recommended)
 
-`scripts/` 以下のスクリプトを使うと、ターミナルを切断しても継続動作するバックグラウンド起動ができます。
-ログは `logs/server.log` に出力され、`tail -f` でリアルタイムに確認できます。
+The scripts under `scripts/` allow you to start the server in the background so that it keeps running even after you disconnect from the terminal.
+Logs are written to `logs/server.log` and can be followed in real time with `tail -f`.
 
 ```bash
-# 初回のみ：スクリプトに実行権限を付与
+# First time only: grant execute permission to the scripts
 chmod +x scripts/*.sh
 
-# 起動（設定ファイルのポート / デフォルト 9000）
+# Start (uses the port from the config file / default 9000)
 ./scripts/start.sh
 
-# ポートを指定して起動
+# Start with a specific port
 ./scripts/start.sh 9001
 
-# ログをリアルタイム確認（別ターミナルで実行）
+# Follow logs in real time (run in a separate terminal)
 tail -f logs/server.log
 
-# 状態確認
+# Check status
 ./scripts/status.sh
 
-# 停止
+# Stop
 ./scripts/stop.sh
 ```
 
-> **補足**: バックグラウンド起動時は `python3 -u`（出力バッファリング無効化）で動かすため、
-> `tail -f` で遅延なくログが表示されます。プロセスは PID ファイル（`mcp-server.pid`）で管理され、
-> 二重起動は防止されます。
+> **Note**: When started in the background, the server runs with `python3 -u` (unbuffered output), so
+> `tail -f` shows logs without delay. The process is managed via a PID file (`mcp-server.pid`),
+> which also prevents duplicate launches.
 
-## 動作確認
+## Verification
 
 ```bash
-# ヘルスチェック（GET）
+# Health check (GET)
 curl http://localhost:9000/
 
-# initialize リクエスト（POST）
+# initialize request (POST)
 curl -X POST http://localhost:9000/ \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
 
-# ツール一覧の取得
+# List tools
 curl -X POST http://localhost:9000/ \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 
-# ツールの実行（echo）
+# Call a tool (echo)
 curl -X POST http://localhost:9000/ \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"echo","arguments":{"message":"hello"}}}'
 ```
 
-## 設定（`mcp_server_config.json`）
+## Configuration (`mcp_server_config.json`)
 
-| 項目 | 説明 | デフォルト |
+| Key | Description | Default |
 | --- | --- | --- |
-| `host` | 待ち受けホスト | `0.0.0.0` |
-| `port` | 待ち受けポート | `9000` |
-| `server_info` | サーバー名・バージョン | `simple-demo-server v1.0.0` |
-| `secret_file_path` | メンテナンス情報ファイルのパス | `./mcp-server-data/secret_notes.txt` |
-| `check_maintenance_description` | `check_maintenance` ツールの説明文 | （例を参照） |
-| `check_maintenance_prefix` | 返却時のプレフィックス文字列 | `maintenance information` |
-| `oauth.enabled` | OAuth 2.1 認証の有効/無効 | `false` |
-| `oauth.public_resource_url` | クライアントがアクセスする公開URL（リバースプロキシ背後で指定）。未指定時は `X-Forwarded-*` → `Host` ヘッダの順で自動解決 | （空・自動解決） |
-| `oauth.issuer` | IdP の Issuer URL | （例を参照） |
-| `oauth.jwks_uri` | IdP の JWKS エンドポイント | （例を参照） |
-| `oauth.audience` | 検証する `aud` クレーム | `api://mcp-server` |
-| `oauth.scopes` | 要求するスコープのリスト | `[]` |
+| `host` | Listen host | `0.0.0.0` |
+| `port` | Listen port | `9000` |
+| `server_info` | Server name and version | `simple-demo-server v1.0.0` |
+| `secret_file_path` | Path to the maintenance information file | `./mcp-server-data/secret_notes.txt` |
+| `check_maintenance_description` | Description for the `check_maintenance` tool | (see example) |
+| `check_maintenance_prefix` | Prefix string prepended to the result | `maintenance information` |
+| `oauth.enabled` | Enable/disable OAuth 2.1 authentication | `false` |
+| `oauth.public_resource_url` | Public URL clients use to access the server (set when behind a reverse proxy). If omitted, it is auto-resolved from `X-Forwarded-*` then the `Host` header | (empty / auto-resolved) |
+| `oauth.issuer` | Issuer URL of the IdP | (see example) |
+| `oauth.jwks_uri` | JWKS endpoint of the IdP | (see example) |
+| `oauth.audience` | `aud` claim to verify | `api://mcp-server` |
+| `oauth.scopes` | List of required scopes | `[]` |
 
-## リバースプロキシ（MCP Proxy）背後での運用
+## Running behind a Reverse Proxy (MCP Proxy)
 
-クライアント → MCP Proxy → 本サーバー（:9000）のようにリバースプロキシを挟む場合、
-OAuth Discovery で **「Proxy のURL と `resource` が一致しない（origin error）」** が出る場合があります。
+When placing a reverse proxy in front of the server — Client → MCP Proxy → This server (:9000) —
+OAuth Discovery may report **"the Proxy URL and `resource` do not match (origin error)"**.
 
-### 原因
+### Cause
 
-`/.well-known/oauth-protected-resource` が返す `resource` フィールドは、RFC 9728 §2.1 により
-**クライアントがメタデータを取得するのに使ったURLと完全一致** する必要があります。サーバーはデフォルトで
-`Host` ヘッダからURLを組み立てますが、プロキシが `Host` を書き換えるとクライアントのURLと食い違います。
+The `resource` field returned by `/.well-known/oauth-protected-resource` must, per RFC 9728 §2.1,
+**exactly match the URL the client used to retrieve the metadata**. The server constructs the URL
+from the `Host` header by default, but if the proxy rewrites `Host`, it will mismatch the client's URL.
 
-### 解決方法（いずれか）
+### Solution (any of the following)
 
-**1. `public_resource_url` を明示指定（推奨・最も確実）**
+**1. Explicitly set `public_resource_url` (recommended, most reliable)**
 
-クライアントが使うURLをそのまま設定します。
+Set the exact URL that clients will use.
 
 ```json
 "oauth": {
@@ -157,10 +157,10 @@ OAuth Discovery で **「Proxy のURL と `resource` が一致しない（origin
 }
 ```
 
-**2. プロキシに `X-Forwarded-*` ヘッダーを付与させる**
+**2. Have the proxy add `X-Forwarded-*` headers**
 
-`public_resource_url` 未指定時は、サーバーが `X-Forwarded-Host` / `X-Forwarded-Proto` を見て
-クライアント視点のURLを自動復元します。nginx の例:
+When `public_resource_url` is omitted, the server restores the client-facing URL from
+`X-Forwarded-Host` / `X-Forwarded-Proto`. Example for nginx:
 
 ```nginx
 location / {
@@ -171,23 +171,24 @@ location / {
 }
 ```
 
-> `public_resource_url` が未設定でも従来どおり `Host` ヘッダにフォールバックするため、
-> 既存の直接接続環境は影響を受けません。認可自体は JWKS トークン検証で独立して保護されています。
+> Even without `public_resource_url` configured, the server falls back to the `Host` header as before,
+> so existing direct-connection environments are unaffected. Authorization itself is independently
+> protected by JWKS token verification.
 
 
-## ディレクトリ構成
+## Directory Structure
 
 ```
 simple-mcp/
-├── mcpServer.py                          # MCP Server 本体
-├── mcp_server_config.json.example        # 設定ファイル例
+├── mcpServer.py                          # MCP Server main
+├── mcp_server_config.json.example        # Example configuration file
 ├── scripts/
-│   ├── start.sh                          # バックグラウンド起動（nohup + PID管理）
-│   ├── stop.sh                           # 停止
-│   └── status.sh                         # 状態確認
+│   ├── start.sh                          # Background start (nohup + PID management)
+│   ├── stop.sh                           # Stop
+│   └── status.sh                         # Status check
 ├── mcp-server-data/
-│   └── secret_notes.txt.example          # メンテナンス情報ファイル例
-├── logs/                                 # ログ出力先（.gitignore 対象・実行時に生成）
-├── requirements.txt                      # OAuth 利用時の依存パッケージ
+│   └── secret_notes.txt.example          # Example maintenance information file
+├── logs/                                 # Log output directory (gitignored, generated at runtime)
+├── requirements.txt                      # Dependencies for OAuth usage
 └── README.md
 ```
