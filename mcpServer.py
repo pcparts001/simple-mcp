@@ -211,7 +211,10 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
     def _is_public_path(self):
         """認証不要のパスかを判定"""
         path = self.path.split("?")[0].rstrip("/")
-        if path == "/.well-known/oauth-protected-resource":
+        # リバースプロキシ/MCP Gateway がパスプレフィックスを保持して転送する場合
+        # (例: /mcp/tenant/.../server/.../.well-known/oauth-protected-resource) にも対応するため
+        # 完全一致ではなく後方一致で判定する
+        if path.endswith("/.well-known/oauth-protected-resource"):
             return True
         return False
 
@@ -220,7 +223,10 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         self.send_response(401)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
-        www = 'Bearer error="invalid_token"'
+        # RFC 9728: Protected Resource Metadata の場所を resource_metadata ヒントで通知。
+        # クライアントの Route B (401 challenge フォールバック discovery) を機能させる。
+        resource_metadata_url = self._resolve_resource_url() + "/.well-known/oauth-protected-resource"
+        www = f'Bearer resource_metadata="{resource_metadata_url}", error="invalid_token"'
         if description:
             www += f', error_description="{description}"'
         self.send_header("WWW-Authenticate", www)
@@ -324,7 +330,8 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0].rstrip("/")
 
         # Protected Resource Metadata (RFC 9728) — 認証不要
-        if path == "/.well-known/oauth-protected-resource":
+        # リバースプロキシ/MCP Gateway がパスプレフィックスを保持して転送する場合にも対応するため後方一致で判定
+        if path.endswith("/.well-known/oauth-protected-resource"):
             print(f"\n{'='*60}")
             print(f"📥 Received GET request (OAuth Discovery / RFC 9728)")
             print(f"   Path: {self.path}")

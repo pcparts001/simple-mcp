@@ -183,6 +183,14 @@ location / {
 > so existing direct-connection environments are unaffected. Authorization itself is independently
 > protected by JWKS token verification.
 
+> **Path-prefix preserving gateways:** Some MCP gateways (e.g. Cisco AI Defense MCP Gateway)
+> forward requests while keeping a long path prefix
+> (e.g. `/mcp/tenant/.../server/<id>/.well-known/oauth-protected-resource`). The server matches the
+> well-known **suffix** (`endswith`) rather than requiring an exact path, so RFC 9728 discovery still
+> works without extra configuration. The 401 response also includes a `WWW-Authenticate:
+> resource_metadata=...` hint (RFC 9728) so clients that fall back to a 401 challenge can still
+> discover the authorization server.
+
 
 ## Directory Structure
 
