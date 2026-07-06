@@ -135,6 +135,7 @@ curl -X POST http://localhost:9000/ \
 | `get_instructions_prefix` | Prefix string prepended to the result | `instructions` |
 | `oauth.enabled` | Enable/disable OAuth 2.1 authentication | `false` |
 | `oauth.public_resource_url` | Public URL clients use to access the server (set when behind a reverse proxy). If omitted, it is auto-resolved from `X-Forwarded-*` then the `Host` header | (empty / auto-resolved) |
+| `oauth.serve_metadata_at_root` | Also serve RFC 9728 metadata at `/` (not only `/.well-known/...`). Enable when an MCP gateway forwards all requests to the backend as `/`, so the well-known path never reaches the backend | `false` |
 | `oauth.issuer` | Issuer URL of the IdP | (see example) |
 | `oauth.jwks_uri` | JWKS endpoint of the IdP | (see example) |
 | `oauth.audience` | `aud` claim to verify | `api://mcp-server` |
@@ -183,13 +184,14 @@ location / {
 > so existing direct-connection environments are unaffected. Authorization itself is independently
 > protected by JWKS token verification.
 
-> **Path-prefix preserving gateways:** Some MCP gateways (e.g. Cisco AI Defense MCP Gateway)
-> forward requests while keeping a long path prefix
-> (e.g. `/mcp/tenant/.../server/<id>/.well-known/oauth-protected-resource`). The server matches the
-> well-known **suffix** (`endswith`) rather than requiring an exact path, so RFC 9728 discovery still
-> works without extra configuration. The 401 response also includes a `WWW-Authenticate:
-> resource_metadata=...` hint (RFC 9728) so clients that fall back to a 401 challenge can still
-> discover the authorization server.
+> **MCP gateways that strip the path (e.g. Cisco AI Defense MCP Gateway):** Some MCP gateways forward
+> every request to the backend as the root path `/`, so the `/.well-known/oauth-protected-resource`
+> path never reaches the backend and RFC 9728 discovery fails (the backend just returns its health
+> check). For such gateways, set `oauth.serve_metadata_at_root: true` so the server returns the
+> metadata document at `/` as well. For gateways that keep the well-known suffix, no setting is
+> needed (the server matches the suffix with `endswith`). The 401 response also includes a
+> `WWW-Authenticate: resource_metadata=...` hint (RFC 9728) for clients that fall back to a 401
+> challenge.
 
 
 ## Directory Structure

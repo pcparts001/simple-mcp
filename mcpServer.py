@@ -33,7 +33,8 @@ def load_config(config_path="mcp_server_config.json"):
         "get_instructions_prefix": "instructions",
         "oauth": {
             "enabled": False,
-            "public_resource_url": ""
+            "public_resource_url": "",
+            "serve_metadata_at_root": False
         }
     }
 
@@ -330,8 +331,12 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0].rstrip("/")
 
         # Protected Resource Metadata (RFC 9728) — 認証不要
-        # リバースプロキシ/MCP Gateway がパスプレフィックスを保持して転送する場合にも対応するため後方一致で判定
-        if path.endswith("/.well-known/oauth-protected-resource"):
+        # リバースプロキシ/MCP Gateway がパスプレフィックスを保持して転送する場合にも対応するため後方一致で判定。
+        # さらに oauth.serve_metadata_at_root=true の場合はルート("/") でもメタデータを返す
+        # (MCP Gateway がバックエンドに well-known パスではなく "/" で転送してくる環境向け)。
+        oauth_cfg = self.server_config.get("oauth", {}) or {}
+        serve_at_root = oauth_cfg.get("serve_metadata_at_root", False)
+        if path.endswith("/.well-known/oauth-protected-resource") or (serve_at_root and path == ""):
             print(f"\n{'='*60}")
             print(f"📥 Received GET request (OAuth Discovery / RFC 9728)")
             print(f"   Path: {self.path}")

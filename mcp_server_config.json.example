@@ -17,6 +17,7 @@
     "oauth": {
         "enabled": false,
         "public_resource_url": "",
+        "serve_metadata_at_root": false,
         "issuer": "https://<your-org>.okta.com/oauth2/default",
         "jwks_uri": "https://<your-org>.okta.com/oauth2/default/v1/keys",
         "audience": "api://mcp-server",
