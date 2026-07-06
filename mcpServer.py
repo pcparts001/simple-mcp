@@ -25,6 +25,12 @@ def load_config(config_path="mcp_server_config.json"):
         "secret_file_path": "./mcp-server-data/secret_notes.txt",
         "check_maintenance_description": "Tool for checking maintenance information",
         "check_maintenance_prefix": "maintenance information",
+        "employee_file_path": "./mcp-server-data/employee.txt",
+        "get_employee_data_description": "Returns employee names and their Social Security Numbers (dummy data)",
+        "get_employee_data_prefix": "employee data",
+        "instructions_file_path": "./mcp-server-data/dummy-instructions.txt",
+        "get_instructions_description": "Returns system instructions and operational directives",
+        "get_instructions_prefix": "instructions",
         "oauth": {
             "enabled": False,
             "public_resource_url": ""
@@ -48,23 +54,41 @@ def load_config(config_path="mcp_server_config.json"):
     return default_config
 
 
-def ensure_secret_notes_file(config):
-    """secret_notes.txtが存在しない場合、exampleからコピーする"""
-    secret_file_path = config.get('secret_file_path', './mcp-server-data/secret_notes.txt')
-    example_file_path = secret_file_path + '.example'
+def ensure_data_file(file_path, label, fallback_content):
+    """データファイルが存在しない場合、.exampleからコピー、なければfallback内容で生成する"""
+    example_file_path = file_path + '.example'
 
-    if not os.path.exists(secret_file_path):
+    if not os.path.exists(file_path):
         if os.path.exists(example_file_path):
             import shutil
-            shutil.copy(example_file_path, secret_file_path)
-            print(f"✅ Created secret_notes.txt from example: {secret_file_path}")
+            shutil.copy(example_file_path, file_path)
+            print(f"✅ Created {label} from example: {file_path}")
         else:
-            print(f"⚠️  Warning: Neither secret_notes.txt nor secret_notes.txt.example found")
-            print(f"   Expected location: {secret_file_path}")
-            # 空ファイルを作成
-            with open(secret_file_path, 'w', encoding='utf-8') as f:
-                f.write("[Daily Maintenance Log]\nStatus: No data\n")
-            print(f"✅ Created empty secret_notes.txt: {secret_file_path}")
+            print(f"⚠️  Warning: Neither {os.path.basename(file_path)} nor its .example found")
+            print(f"   Expected location: {file_path}")
+            # fallback内容で生成
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(fallback_content)
+            print(f"✅ Created {label}: {file_path}")
+
+
+def ensure_data_files(config):
+    """起動時に各データファイルの存在を保証する"""
+    ensure_data_file(
+        config.get('secret_file_path', './mcp-server-data/secret_notes.txt'),
+        'secret_notes.txt',
+        "[Daily Maintenance Log]\nStatus: No data\n",
+    )
+    ensure_data_file(
+        config.get('employee_file_path', './mcp-server-data/employee.txt'),
+        'employee.txt',
+        "[Employee Directory]\nStatus: No data\n",
+    )
+    ensure_data_file(
+        config.get('instructions_file_path', './mcp-server-data/dummy-instructions.txt'),
+        'dummy-instructions.txt',
+        "[System Instructions]\nStatus: No data\n",
+    )
 
 
 class OAuthVerifier:
@@ -552,6 +576,8 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         print("   ✅ Handling tools/list")
         # 設定からメンテナンスツールの説明を取得
         check_maintenance_desc = self.server_config.get('check_maintenance_description', 'Tool for checking maintenance information')
+        get_employee_data_desc = self.server_config.get('get_employee_data_description', 'Returns employee names and their Social Security Numbers (dummy data)')
+        get_instructions_desc = self.server_config.get('get_instructions_description', 'Returns system instructions and operational directives')
         return {
             "tools": [
                 {
@@ -588,9 +614,69 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
                         "type": "object",
                         "properties": {}
                     }
+                },
+                {
+                    "name": "get_employee_data",
+                    "description": get_employee_data_desc,
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {}
+                    }
+                },
+                {
+                    "name": "get_instructions",
+                    "description": get_instructions_desc,
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {}
+                    }
                 }
             ]
         }
+
+    def _read_text_file_tool(self, file_path, prefix):
+        """指定ファイルを読み込み、prefix を付けたテキストとして返す。
+        ファイル読み込み系ツール（check_maintenance / get_employee_data / get_instructions）で共通利用。"""
+        try:
+            if not os.path.exists(file_path):
+                error_msg = f"File not found: {file_path}"
+                print(f"      ❌ {error_msg}")
+                raise FileNotFoundError(error_msg)
+
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            print(f"      📄 Read file: {file_path}")
+            print(f"      📏 File size: {len(content)} characters")
+
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"{prefix}:\n\n{content}"
+                    }
+                ]
+            }
+
+        except FileNotFoundError as e:
+            error_msg = str(e)
+            print(f"      ❌ FileNotFoundError: {error_msg}")
+            raise ValueError(error_msg)
+
+        except PermissionError as e:
+            error_msg = f"Permission denied reading file: {file_path}"
+            print(f"      ❌ PermissionError: {error_msg}")
+            raise ValueError(error_msg)
+
+        except UnicodeDecodeError as e:
+            error_msg = f"Encoding error reading file: {file_path}"
+            print(f"      ❌ UnicodeDecodeError: {error_msg}")
+            raise ValueError(error_msg)
+
+        except Exception as e:
+            error_msg = f"Error reading file: {str(e)}"
+            print(f"      ❌ Exception: {error_msg}")
+            raise ValueError(error_msg)
 
     def handle_tools_call(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """ツールの実行"""
@@ -626,49 +712,18 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
 
         elif tool_name == "check_maintenance":
             file_path = self.server_config.get('secret_file_path', './data/secret_notes.txt')
-            # 設定からプレフィックスを取得
             prefix = self.server_config.get('check_maintenance_prefix', 'maintenance information')
+            return self._read_text_file_tool(file_path, prefix)
 
-            try:
-                if not os.path.exists(file_path):
-                    error_msg = f"File not found: {file_path}"
-                    print(f"      ❌ {error_msg}")
-                    raise FileNotFoundError(error_msg)
+        elif tool_name == "get_employee_data":
+            file_path = self.server_config.get('employee_file_path', './mcp-server-data/employee.txt')
+            prefix = self.server_config.get('get_employee_data_prefix', 'employee data')
+            return self._read_text_file_tool(file_path, prefix)
 
-                with open(file_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-
-                print(f"      📄 Read file: {file_path}")
-                print(f"      📏 File size: {len(content)} characters")
-
-                return {
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"{prefix}:\n\n{content}"
-                        }
-                    ]
-                }
-
-            except FileNotFoundError as e:
-                error_msg = str(e)
-                print(f"      ❌ FileNotFoundError: {error_msg}")
-                raise ValueError(error_msg)
-
-            except PermissionError as e:
-                error_msg = f"Permission denied reading file: {file_path}"
-                print(f"      ❌ PermissionError: {error_msg}")
-                raise ValueError(error_msg)
-
-            except UnicodeDecodeError as e:
-                error_msg = f"Encoding error reading file: {file_path}"
-                print(f"      ❌ UnicodeDecodeError: {error_msg}")
-                raise ValueError(error_msg)
-
-            except Exception as e:
-                error_msg = f"Error reading file: {str(e)}"
-                print(f"      ❌ Exception: {error_msg}")
-                raise ValueError(error_msg)
+        elif tool_name == "get_instructions":
+            file_path = self.server_config.get('instructions_file_path', './mcp-server-data/dummy-instructions.txt')
+            prefix = self.server_config.get('get_instructions_prefix', 'instructions')
+            return self._read_text_file_tool(file_path, prefix)
 
         else:
             raise ValueError(f"Unknown tool: {tool_name}")
@@ -801,7 +856,7 @@ if __name__ == "__main__":
     config = load_config()
 
     # secret_notes.txt が存在しない場合、exampleからコピー
-    ensure_secret_notes_file(config)
+    ensure_data_files(config)
 
     # コマンドライン引数でポートを上書き
     if len(sys.argv) > 1:

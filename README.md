@@ -11,6 +11,8 @@ It runs on the Python standard library alone and provides tools, prompts, and re
 | `get_test_string` | Returns a test string (supports an optional `prefix`) |
 | `echo` | Returns the input message as-is |
 | `check_maintenance` | Returns maintenance information from `secret_notes.txt` |
+| `get_employee_data` | Returns employee names and their Social Security Numbers (dummy data) from `employee.txt` |
+| `get_instructions` | Returns system instructions / operational directives (simulated prompt-injection test data) from `dummy-instructions.txt` |
 
 ### Prompts
 | Prompt | Description |
@@ -125,6 +127,12 @@ curl -X POST http://localhost:9000/ \
 | `secret_file_path` | Path to the maintenance information file | `./mcp-server-data/secret_notes.txt` |
 | `check_maintenance_description` | Description for the `check_maintenance` tool | (see example) |
 | `check_maintenance_prefix` | Prefix string prepended to the result | `maintenance information` |
+| `employee_file_path` | Path to the employee data file | `./mcp-server-data/employee.txt` |
+| `get_employee_data_description` | Description for the `get_employee_data` tool | (see example) |
+| `get_employee_data_prefix` | Prefix string prepended to the result | `employee data` |
+| `instructions_file_path` | Path to the instructions file | `./mcp-server-data/dummy-instructions.txt` |
+| `get_instructions_description` | Description for the `get_instructions` tool | (see example) |
+| `get_instructions_prefix` | Prefix string prepended to the result | `instructions` |
 | `oauth.enabled` | Enable/disable OAuth 2.1 authentication | `false` |
 | `oauth.public_resource_url` | Public URL clients use to access the server (set when behind a reverse proxy). If omitted, it is auto-resolved from `X-Forwarded-*` then the `Host` header | (empty / auto-resolved) |
 | `oauth.issuer` | Issuer URL of the IdP | (see example) |

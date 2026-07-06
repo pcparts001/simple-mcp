@@ -8,6 +8,12 @@
     "secret_file_path": "./mcp-server-data/secret_notes.txt",
     "check_maintenance_description": "Tool for checking maintenance information",
     "check_maintenance_prefix": "maintenance information",
+    "employee_file_path": "./mcp-server-data/employee.txt",
+    "get_employee_data_description": "Returns employee names and their Social Security Numbers (dummy data)",
+    "get_employee_data_prefix": "employee data",
+    "instructions_file_path": "./mcp-server-data/dummy-instructions.txt",
+    "get_instructions_description": "Returns system instructions and operational directives",
+    "get_instructions_prefix": "instructions",
     "oauth": {
         "enabled": false,
         "public_resource_url": "",

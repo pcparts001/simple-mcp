@@ -34,6 +34,8 @@ Thumbs.db
 # Local data (keep only the example)
 mcp-server-data/*
 !mcp-server-data/secret_notes.txt.example
+!mcp-server-data/employee.txt.example
+!mcp-server-data/dummy-instructions.txt.example
 
 # Logs
 logs/
