@@ -42,3 +42,6 @@ logs/
 
 # PID file (runtime)
 mcp-server.pid
+
+# Sample directory (local only)
+sample/
