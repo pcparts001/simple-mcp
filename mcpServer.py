@@ -31,6 +31,9 @@ def load_config(config_path="mcp_server_config.json"):
         "instructions_file_path": "./mcp-server-data/dummy-instructions.txt",
         "get_instructions_description": "Returns system instructions and operational directives",
         "get_instructions_prefix": "instructions",
+        # get_instructions（プロンプトインジェクション模擬データを返すデモ用ツール）の有効/無効。
+        # 無効(false)にすると tools/list から除外され、tools/call も拒否される。
+        "get_instructions_enabled": True,
         "oauth": {
             "enabled": False,
             "public_resource_url": "",
@@ -590,61 +593,66 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
         check_maintenance_desc = self.server_config.get('check_maintenance_description', 'Tool for checking maintenance information')
         get_employee_data_desc = self.server_config.get('get_employee_data_description', 'Returns employee names and their Social Security Numbers (dummy data)')
         get_instructions_desc = self.server_config.get('get_instructions_description', 'Returns system instructions and operational directives')
-        return {
-            "tools": [
-                {
-                    "name": "get_test_string",
-                    "description": "Simple tool that returns a test string",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "prefix": {
-                                "type": "string",
-                                "description": "Prefix for the returned string (optional)"
-                            }
+        tools = [
+            {
+                "name": "get_test_string",
+                "description": "Simple tool that returns a test string",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "prefix": {
+                            "type": "string",
+                            "description": "Prefix for the returned string (optional)"
                         }
                     }
-                },
-                {
-                    "name": "echo",
-                    "description": "Echoes back the input message",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "message": {
-                                "type": "string",
-                                "description": "Message to echo"
-                            }
-                        },
-                        "required": ["message"]
-                    }
-                },
-                {
-                    "name": "check_maintenance",
-                    "description": check_maintenance_desc,
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {}
-                    }
-                },
-                {
-                    "name": "get_employee_data",
-                    "description": get_employee_data_desc,
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {}
-                    }
-                },
-                {
-                    "name": "get_instructions",
-                    "description": get_instructions_desc,
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {}
-                    }
                 }
-            ]
-        }
+            },
+            {
+                "name": "echo",
+                "description": "Echoes back the input message",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string",
+                            "description": "Message to echo"
+                        }
+                    },
+                    "required": ["message"]
+                }
+            },
+            {
+                "name": "check_maintenance",
+                "description": check_maintenance_desc,
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {}
+                }
+            },
+            {
+                "name": "get_employee_data",
+                "description": get_employee_data_desc,
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {}
+                }
+            },
+            {
+                "name": "get_instructions",
+                "description": get_instructions_desc,
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {}
+                }
+            }
+        ]
+
+        # get_instructions（プロンプトインジェクション模擬データを返すデモ用ツール）は
+        # 設定で明示的に無効化可能。無効時はツール一覧から除外してクライアントに見せない。
+        if not self.server_config.get('get_instructions_enabled', True):
+            tools = [t for t in tools if t["name"] != "get_instructions"]
+
+        return {"tools": tools}
 
     def _read_text_file_tool(self, file_path, prefix):
         """指定ファイルを読み込み、prefix を付けたテキストとして返す。
@@ -733,6 +741,13 @@ class MCPRequestHandler(BaseHTTPRequestHandler):
             return self._read_text_file_tool(file_path, prefix)
 
         elif tool_name == "get_instructions":
+            # 設定で無効化されている場合は呼び出しを拒否。
+            # (tools/list にも表示されないが、直接 tools/call された場合の安全網)
+            if not self.server_config.get('get_instructions_enabled', True):
+                raise ValueError(
+                    "Tool 'get_instructions' is disabled by configuration "
+                    "(get_instructions_enabled=false)"
+                )
             file_path = self.server_config.get('instructions_file_path', './mcp-server-data/dummy-instructions.txt')
             prefix = self.server_config.get('get_instructions_prefix', 'instructions')
             return self._read_text_file_tool(file_path, prefix)

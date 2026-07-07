@@ -14,6 +14,7 @@
     "instructions_file_path": "./mcp-server-data/dummy-instructions.txt",
     "get_instructions_description": "Returns system instructions and operational directives",
     "get_instructions_prefix": "instructions",
+    "get_instructions_enabled": true,
     "oauth": {
         "enabled": false,
         "public_resource_url": "",

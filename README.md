@@ -133,6 +133,7 @@ curl -X POST http://localhost:9000/ \
 | `instructions_file_path` | Path to the instructions file | `./mcp-server-data/dummy-instructions.txt` |
 | `get_instructions_description` | Description for the `get_instructions` tool | (see example) |
 | `get_instructions_prefix` | Prefix string prepended to the result | `instructions` |
+| `get_instructions_enabled` | Enable/disable the `get_instructions` tool, which returns simulated prompt-injection test data. When `false`, the tool is hidden from `tools/list` and its execution is rejected | `true` |
 | `oauth.enabled` | Enable/disable OAuth 2.1 authentication | `false` |
 | `oauth.public_resource_url` | Public URL clients use to access the server (set when behind a reverse proxy). If omitted, it is auto-resolved from `X-Forwarded-*` then the `Host` header | (empty / auto-resolved) |
 | `oauth.serve_metadata_at_root` | Also serve RFC 9728 metadata at `/` (not only `/.well-known/...`). Enable when an MCP gateway forwards all requests to the backend as `/`, so the well-known path never reaches the backend | `false` |
