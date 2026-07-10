@@ -28,6 +28,7 @@ from typing import Any, Dict, Optional
 
 import uvicorn
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.cors import CORSMiddleware
@@ -315,6 +316,13 @@ def build_mcp_server(config: Dict[str, Any]) -> FastMCP:
         stateless_http=True,  # Gateway 越しのスケーラビリティ。セッションID を発行しない
         json_response=True,   # SSE ではなく JSON レスポンス（ログ爆発抑制・Gateway 友好）
         streamable_http_path="/mcp",
+        # 外部公開（直接接続 / Cisco Gateway 背後）を想定。
+        # host="0.0.0.0" を明示しないと FastMCP 既定の 127.0.0.1 扱いとなり、DNS リバインディング保護が
+        # localhost 限定で自動有効化されて、外部 IP や Gateway の Host ヘッダを 421 Misdirected Request で弾く。
+        host="0.0.0.0",
+        transport_security=TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,  # 多様な Host（直接IP / Gateway Host）を許可
+        ),
     )
 
     # --- ツール ---
