@@ -464,6 +464,24 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class GatewayPathRewriteMiddleware(BaseHTTPMiddleware):
+    """Cisco Gateway 対策: バックエンドの / に転送された MCP リクエストを /mcp にリライト。
+
+    Cisco AI Defense MCP Gateway はクライアントの POST をバックエンドのルート(/) に転送
+    する（パスリライト）。FastMCP の Streamable HTTP エンドポイントは /mcp のため、
+    そのままでは POST / が 404 になる（Claude Code が Gateway 経由でこの問題に遭遇）。
+    これを回避するため、/ の MCP リクエスト(POST/DELETE) を /mcp にリライトして FastMCP
+    に渡す。GET / は root_endpoint（ヘルス/RFC 9728 discovery）で処理するためリライトしない。
+    これにより Codex（直接 /mcp）と Claude Code（Gateway 経由 /）の両方で動く。
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path == "/" and request.method in ("POST", "DELETE"):
+            request.scope["path"] = "/mcp"
+            request.scope["raw_path"] = b"/mcp"
+        return await call_next(request)
+
+
 # ============================================================
 # Starlette アプリ組み立て
 # ============================================================
@@ -526,8 +544,11 @@ def build_app(config: Dict[str, Any]):
     app.state.oauth_verifier = oauth_verifier
     app.state.serve_metadata_at_root = serve_metadata_at_root
 
-    # ミドルウェアは追加順と逆順で実行される点に注意（CORS → Auth の順で通過させる）
+    # ミドルウェアは追加順と逆順で実行される点に注意。
+    # リクエスト通過順: CORS（外）→ GatewayPathRewrite（/ を /mcp にリライト）
+    #                  → BearerAuth（/mcp を認証）→ アプリ
     app.add_middleware(BearerAuthMiddleware)
+    app.add_middleware(GatewayPathRewriteMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
