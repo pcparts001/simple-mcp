@@ -428,6 +428,16 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         ):
             return await call_next(request)
 
+        # GET /mcp（SSE ストリームオープン/probing）は認証前アクセスを許可する。
+        # Streamable HTTP では GET /mcp は initialize より前にアクセスされるのが普通で、
+        # ここで 401 を返すとクライアントが Route B（401 の WWW-Authenticate resource_metadata
+        # ヒント経由）の厳格な discovery に入り、resource URL 不整合（public_resource_url と
+        # 実接続URLの違い）で認証メタデータを信用せず失敗する。認証を要求するのは
+        # POST /mcp（MCP メッセージ本体）のみ。stateless + json_response なので GET /mcp は
+        # FastMCP が 406 を返し実害なし（SSE ストリームは開かれない）。
+        if request.method == "GET" and (path == "/mcp" or path.endswith("/mcp")):
+            return await call_next(request)
+
         # OAuth 無効なら素通し
         if verifier is None or not verifier.enabled:
             return await call_next(request)
