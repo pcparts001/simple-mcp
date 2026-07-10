@@ -277,9 +277,19 @@ def make_401_response(request: Request, config: Dict[str, Any], description: str
 
 
 def is_public_metadata_path(path: str) -> bool:
-    """認証不要のメタデータパスか（後方一致で Gateway のパスプレフィックス転送にも対応）。"""
+    """認証不要の discovery / メタデータパスか。
+
+    RFC 9728 (oauth-protected-resource)、RFC 8414 (oauth-authorization-server)、
+    OIDC Discovery (openid-configuration) はすべて事前認証なしで取得できる前提。
+    これらを 401 で弾くとクライアントの discovery が壊れる（認可サーバーへ進めなくなる）ため、
+    /.well-known/ 配下はすべて認証バイパスする。存在しないパスは 404 となり、クライアントは
+    authorization_servers の外部 AS（例: Duo SSO）に正しく向かう。
+    リバースプロキシ/Gateway のパスプレフィックス保持転送
+    (例: /mcp/tenant/.../server/.well-known/oauth-authorization-server) にも対応するため
+    部分一致で判定する。
+    """
     path = path.split("?")[0].rstrip("/")
-    return path.endswith("/.well-known/oauth-protected-resource")
+    return "/.well-known/" in path
 
 
 # ============================================================
