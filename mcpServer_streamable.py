@@ -450,11 +450,17 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
 
         token = auth.split(" ", 1)[1].strip()
         try:
-            verifier.verify(token)
+            claims = verifier.verify(token)
         except Exception as e:
+            # 検証用サーバー: 受信トークン本体と失敗理由を出力
             print(f"   🔒 401: token verify failed: {e} (path={path})")
+            print(f"      token: {token}")
             return make_401_response(request, config, str(e))
 
+        # 検証成功（検証用サーバー: 受信トークン本体とデコードした claims を出力）
+        print(f"   ✅ token verified (path={path})")
+        print(f"      token: {token}")
+        print(f"      claims: {json.dumps(claims, ensure_ascii=False, default=str)}")
         return await call_next(request)
 
 
