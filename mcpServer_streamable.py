@@ -481,11 +481,10 @@ class GatewayPathRewriteMiddleware(BaseHTTPMiddleware):
             request.scope["path"] = "/mcp"
             request.scope["raw_path"] = b"/mcp"
         elif path == "/" and request.method == "GET":
-            # デバッグ: GET / の Accept / User-Agent を出力（Codex GW経由の probing 判定用）
-            print(
-                f"   🔍 GET / accept={request.headers.get('accept', '<none>')!r} "
-                f"ua={request.headers.get('user-agent', '<none>')!r}"
-            )
+            # デバッグ: GET / の全ヘッダーを出力（Codex 用 / Claude Code 用 GW URL の判別用）
+            print("   🔍 GET / all headers:")
+            for h, v in request.headers.items():
+                print(f"      {h}: {v}")
         return await call_next(request)
 
 
