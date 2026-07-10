@@ -45,3 +45,7 @@ mcp-server.pid
 
 # Sample directory (local only)
 sample/
+
+# --- Streamable HTTP variant (mcpServer_streamable.py) ---
+venv-streamable/
+mcp-server-streamable.pid

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# MCP Server の実行状態を表示する
+# MCP Server（標準版・Streamable HTTP 版 両方）の実行状態を表示する
 #
 # 使い方:
 #   ./scripts/status.sh
-#   （終了コード: 起動中=0 / 停止中=1）
+#   （終了コード: いずれか起動中=0 / 両方停止=1）
 set -uo pipefail
 
 # スクリプトの場所を基準にプロジェクトルートへ移動
@@ -12,21 +12,41 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-PID_FILE="$PROJECT_ROOT/mcp-server.pid"
-LOG_FILE="$PROJECT_ROOT/logs/server.log"
+ANY_RUNNING=0
 
-if [[ -f "$PID_FILE" ]]; then
-    PID="$(cat "$PID_FILE" 2>/dev/null || true)"
-    if [[ -n "${PID:-}" ]] && kill -0 "$PID" 2>/dev/null; then
-        echo "✅ MCP Server は実行中です (PID: $PID)"
-        echo "   ログ: tail -f $LOG_FILE"
-        exit 0
+# 指定 PID ファイルのサーバー状態を表示
+check_pidfile() {
+    local pf="$1"
+    local label="$2"
+    local logf="$3"
+
+    if [[ -f "$pf" ]]; then
+        local pid
+        pid="$(cat "$pf" 2>/dev/null || true)"
+        if [[ -n "${pid:-}" ]] && kill -0 "$pid" 2>/dev/null; then
+            echo "✅ $label は実行中です (PID: $pid)"
+            echo "   ログ: tail -f $logf"
+            ANY_RUNNING=1
+            return
+        fi
+        echo "⚠️  $label のPIDファイルはありますが、プロセス (PID: ${pid:-empty}) は見つかりません"
+        echo "   古いPIDファイルの可能性があります: rm $pf"
+        return
     fi
-    # PIDファイルはあるがプロセスは無い
-    echo "⚠️  PIDファイルはありますが、プロセス (PID: ${PID:-empty}) は見つかりません"
-    echo "   古いPIDファイルの可能性があります: rm $PID_FILE"
+    echo "🔴 $label は停止しています"
+}
+
+check_pidfile \
+    "$PROJECT_ROOT/mcp-server.pid" \
+    "MCP Server (Standard HTTP)" \
+    "$PROJECT_ROOT/logs/server.log"
+check_pidfile \
+    "$PROJECT_ROOT/mcp-server-streamable.pid" \
+    "MCP Server (Streamable HTTP)" \
+    "$PROJECT_ROOT/logs/server-streamable.log"
+
+if [[ "$ANY_RUNNING" = "1" ]]; then
+    exit 0
+else
     exit 1
 fi
-
-echo "🔴 MCP Server は停止しています"
-exit 1

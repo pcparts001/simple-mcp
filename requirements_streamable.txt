@@ -1,0 +1,10 @@
+# Streamable HTTP 版（公式 MCP Python SDK の FastMCP）。Python 3.12 を想定。
+# mcpServer_streamable.py の依存関係。requirements.txt（標準 http.server 版）とは別管理。
+
+mcp>=1.27,<2          # 公式 MCP Python SDK（v1.x 安定版）。FastMCP + streamable_http_app を提供。
+                      # ※ 2026-07-27 に v2 安定版予定のため <2 上限必須。
+uvicorn>=0.30         # ASGI サーバ（FastMCP の Streamable HTTP アプリを動かす）
+
+# 以下は OAuth 有効時のみ必要（既存 requirements.txt と同じ）。デフォルトは無効でも動く。
+PyJWT>=2.8.0          # Bearer トークン検証（JWKS / RS256）
+cryptography>=41.0.0  # PyJWT の RS256 検証バックエンド
