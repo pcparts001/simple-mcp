@@ -476,9 +476,13 @@ class GatewayPathRewriteMiddleware(BaseHTTPMiddleware):
     """
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path == "/" and request.method in ("POST", "DELETE"):
+        path = request.url.path
+        if path == "/" and request.method in ("POST", "DELETE"):
             request.scope["path"] = "/mcp"
             request.scope["raw_path"] = b"/mcp"
+        elif path == "/" and request.method == "GET":
+            # デバッグ: GET / の Accept ヘッダーを出力（Codex GW経由の probing 判定用）
+            print(f"   🔍 GET / accept={request.headers.get('accept', '<none>')!r}")
         return await call_next(request)
 
 
