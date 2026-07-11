@@ -271,7 +271,9 @@ def make_401_response(request: Request, config: Dict[str, Any], description: str
     # WWW-Authenticate は resource_metadata のみ（OpenAI のドキュメント例に合わせる）。
     # error="invalid_token" / error_description を付けると、一部クライアントが
     # 「トークン無効＝リトライ」と解釈して Route B discovery に入らないことがあるため。
-    www = f'Bearer resource_metadata="{resource_metadata_url}"'
+    www = f'Bearer resource_metadata="{resource_metadata_url}", error="invalid_token"'
+    if description:
+        www += f', error_description="{description}"'
     body = {"error": "invalid_token", "error_description": description}
     print(f"   📤 401 Unauthorized response:")
     print(f"      WWW-Authenticate: {www}")
@@ -430,22 +432,13 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         verifier: Optional[OAuthVerifier] = request.app.state.oauth_verifier
         path = request.url.path
 
-        # メタデータ/OPTIONS は認証バイパス
+        # メタデータ/ヘルス/OPTIONS は認証バイパス
         if (
             request.method == "OPTIONS"
             or is_public_metadata_path(path)
+            or path == "/"
         ):
             return await call_next(request)
-
-        # GET /（ルート）は health check と MCP クライアントの probing で使い分けられる:
-        # - mcp-protocol-version ヘッダーなし（GW health check 等）は root_endpoint（200）へ素通し
-        # - mcp-protocol-version ヘッダーあり（MCP クライアントの probing）は下の認証ロジックへ。
-        #   未認証なら 401 + WWW-Authenticate を返し Route B discovery をトリガーする
-        #   （GW 経由の Codex は GW に / にリライトされた GET / で probing し、401 を期待する。
-        #    Direct は GET /mcp → 406 で直接 discovery 経路を使うので影響しない）。
-        if path == "/" and request.method == "GET":
-            if not request.headers.get("mcp-protocol-version"):
-                return await call_next(request)  # health check → root_endpoint
 
         # GET /mcp（Direct の SSE ストリーム/probing）は認証前アクセスを許可（406）。
         # Direct（resource 不整合）は 406 の直接 discovery 経路で成功する。
