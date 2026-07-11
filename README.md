@@ -141,6 +141,7 @@ curl -X POST http://localhost:9000/ \
 | `oauth.jwks_uri` | JWKS endpoint of the IdP | (see example) |
 | `oauth.audience` | `aud` claim to verify | `api://mcp-server` |
 | `oauth.scopes` | List of required scopes | `[]` |
+| `oauth.codex_ips` | **(Streamable HTTP variant only)** Allowlist of client IPs (`X-Forwarded-For`) whose `GET /` is rewritten to `/mcp`. Lets Codex work through path-rewriting MCP gateways (e.g. Cisco AI Defense). Ignored by the standard server | `[]` |
 
 ## Running behind a Reverse Proxy (MCP Proxy)
 
@@ -193,6 +194,33 @@ location / {
 > needed (the server matches the suffix with `endswith`). The 401 response also includes a
 > `WWW-Authenticate: resource_metadata=...` hint (RFC 9728) for clients that fall back to a 401
 > challenge.
+
+### Codex via a path-rewriting MCP gateway (Streamable HTTP variant only)
+
+Codex sends a `GET` probe to the MCP endpoint and expects `406 Not Acceptable` (it then runs
+discovery → OAuth → `POST` initialize). Through a path-rewriting gateway (e.g. Cisco AI Defense
+MCP Gateway), that probe is forwarded to the backend root `/`, where the health endpoint answers
+`200` instead of `406`. Codex then treats the endpoint as non-MCP and fails with
+`No authorization support detected`. Claude Code is unaffected because it does not send a `GET /`
+probe (it uses `POST /` directly).
+
+List the Codex client's IP (the `X-Forwarded-For` value observed at the backend) in
+`oauth.codex_ips`. Only matching `GET /` requests are rewritten to `/mcp` (returning `406`); all
+other `GET /` requests — including the gateway's health checks — keep reaching the health endpoint
+(`200`). The allowlist is explicit and IP-based, so health checks are not affected as long as their
+source IP is not listed. When the rewrite triggers, the server logs (in English) that Codex was
+detected and non-default behavior is being applied.
+
+```json
+"oauth": {
+    "enabled": true,
+    "codex_ips": ["203.0.113.10"]
+}
+```
+
+> Codex client IPs can change; update `codex_ips` when they do. This setting is honored only by the
+> Streamable HTTP variant (`mcpServer_streamable.py`, started with `./scripts/start.sh stream`); the
+> standard server (`mcpServer.py`) ignores it.
 
 
 ## Directory Structure

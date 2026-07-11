@@ -493,7 +493,11 @@ class GatewayPathRewriteMiddleware(BaseHTTPMiddleware):
             if codex_ips:
                 xff = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
                 if xff and xff in codex_ips:
-                    print(f"   🔁 GET / → /mcp (x-forwarded-for={xff} matches codex_ips)")
+                    print(
+                        f"   [Codex GW-via compatibility] GET / rewritten to /mcp "
+                        f"(x-forwarded-for={xff} matches oauth.codex_ips). "
+                        f"Codex probing expects 406; applying non-default behavior."
+                    )
                     request.scope["path"] = "/mcp"
                     request.scope["raw_path"] = b"/mcp"
         return await call_next(request)
