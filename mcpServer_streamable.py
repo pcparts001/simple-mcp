@@ -80,6 +80,11 @@ def load_config(config_path: str = "mcp_server_config.json") -> Dict[str, Any]:
             "audience": "",
             "scopes": [],
             "jwks_cache_seconds": 600,
+            # GET / を /mcp にリライトするクライアントIP（X-Forwarded-For）のホワイトリスト。
+            # Codex の probing（406 を期待）が GW 経由で GET / → root_endpoint(200) になり失敗する
+            # 問題の回避。指定した IP からの GET / のみ /mcp にリライトし、health check 等は
+            # root_endpoint のまま（IP ベースなので health check への影響を排除できる）。
+            "codex_ips": [],
         },
     }
 
@@ -481,10 +486,16 @@ class GatewayPathRewriteMiddleware(BaseHTTPMiddleware):
             request.scope["path"] = "/mcp"
             request.scope["raw_path"] = b"/mcp"
         elif path == "/" and request.method == "GET":
-            # デバッグ: GET / の全ヘッダーを出力（Codex 用 / Claude Code 用 GW URL の判別用）
-            print("   🔍 GET / all headers:")
-            for h, v in request.headers.items():
-                print(f"      {h}: {v}")
+            # oauth.codex_ips に指定したクライアントIP（X-Forwarded-For）からの GET / のみ
+            # /mcp にリライト（Codex の probing は 406 を期待）。それ以外（GW health check 等）は
+            # root_endpoint のまま。IP ホワイトリスト方式で health check への影響を排除。
+            codex_ips = request.app.state.config.get("oauth", {}).get("codex_ips", []) or []
+            if codex_ips:
+                xff = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+                if xff and xff in codex_ips:
+                    print(f"   🔁 GET / → /mcp (x-forwarded-for={xff} matches codex_ips)")
+                    request.scope["path"] = "/mcp"
+                    request.scope["raw_path"] = b"/mcp"
         return await call_next(request)
 
 

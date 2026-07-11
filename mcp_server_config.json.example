@@ -23,6 +23,7 @@
         "jwks_uri": "https://<your-org>.okta.com/oauth2/default/v1/keys",
         "audience": "api://mcp-server",
         "scopes": [],
-        "jwks_cache_seconds": 600
+        "jwks_cache_seconds": 600,
+        "codex_ips": []
     }
 }
