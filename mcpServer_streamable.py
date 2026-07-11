@@ -272,8 +272,12 @@ def make_401_response(request: Request, config: Dict[str, Any], description: str
     # error="invalid_token" / error_description を付けると、一部クライアントが
     # 「トークン無効＝リトライ」と解釈して Route B discovery に入らないことがあるため。
     www = f'Bearer resource_metadata="{resource_metadata_url}"'
+    body = {"error": "invalid_token", "error_description": description}
+    print(f"   📤 401 Unauthorized response:")
+    print(f"      WWW-Authenticate: {www}")
+    print(f"      body: {json.dumps(body, ensure_ascii=False)}")
     return JSONResponse(
-        {"error": "invalid_token", "error_description": description},
+        body,
         status_code=401,
         headers={
             "WWW-Authenticate": www,
@@ -535,14 +539,16 @@ def build_app(config: Dict[str, Any]):
         """ルート GET。serve_metadata_at_root=true ならメタデータ、それ以外はヘルスチェック。"""
         if serve_metadata_at_root:
             return await metadata_endpoint(request)
+        body = {
+            "status": "ok",
+            "server": "MCP Server (Streamable HTTP)",
+            "version": (config.get("server_info", {}) or {}).get("version", "1.0.0"),
+            "transport": "streamable-http",
+            "message": "Server is running. POST to /mcp for MCP requests.",
+        }
+        print(f"   📤 GET / response (200, health): {json.dumps(body, ensure_ascii=False)}")
         return JSONResponse(
-            {
-                "status": "ok",
-                "server": "MCP Server (Streamable HTTP)",
-                "version": (config.get("server_info", {}) or {}).get("version", "1.0.0"),
-                "transport": "streamable-http",
-                "message": "Server is running. POST to /mcp for MCP requests.",
-            },
+            body,
             headers={"Access-Control-Allow-Origin": "*"},
         )
 
