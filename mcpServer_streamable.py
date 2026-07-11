@@ -268,9 +268,10 @@ def build_protected_resource_metadata(request: Request, config: Dict[str, Any]) 
 def make_401_response(request: Request, config: Dict[str, Any], description: str) -> JSONResponse:
     """401 Unauthorized + RFC 9728 WWW-Authenticate ヒントを返す（mcpServer.py:225-242 と等価）。"""
     resource_metadata_url = resolve_resource_url(request, config) + "/.well-known/oauth-protected-resource"
-    www = f'Bearer resource_metadata="{resource_metadata_url}", error="invalid_token"'
-    if description:
-        www += f', error_description="{description}"'
+    # WWW-Authenticate は resource_metadata のみ（OpenAI のドキュメント例に合わせる）。
+    # error="invalid_token" / error_description を付けると、一部クライアントが
+    # 「トークン無効＝リトライ」と解釈して Route B discovery に入らないことがあるため。
+    www = f'Bearer resource_metadata="{resource_metadata_url}"'
     return JSONResponse(
         {"error": "invalid_token", "error_description": description},
         status_code=401,
